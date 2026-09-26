@@ -130,6 +130,7 @@ button:disabled { cursor: default; opacity: 0.45; }
 
 .stage { flex: 1; min-width: 0; display: flex; flex-direction: column; min-height: 0; }
 .chart-stage { flex: 1; min-height: 0; position: relative; display: flex; }
+.chart-stage-collapsed { flex: 0 0 0; height: 0; overflow: hidden; }
 .chart-wrap { position: relative; flex: 1; min-width: 0; min-height: 0; }
 .chart-canvas { position: absolute; inset: 0; }
 .chart-wrap.tool-hline, .chart-wrap.tool-text { cursor: crosshair; }
@@ -183,6 +184,8 @@ button:disabled { cursor: default; opacity: 0.45; }
 .db-error ul { padding-left: 18px; max-height: 180px; overflow: auto; }
 .db-error li span { color: var(--faint); }
 
+.blotter-slot { flex: none; min-height: 0; display: flex; flex-direction: column; }
+.blotter-slot.max { flex: 1; }
 .blotter { height: 100%; display: flex; flex-direction: column; min-height: 0; background: var(--bg); }
 .blotter-bar {
   display: flex; align-items: center; gap: 10px; padding: 4px 10px; color: var(--dim); flex: none;
@@ -190,6 +193,12 @@ button:disabled { cursor: default; opacity: 0.45; }
 .blotter-bar strong { color: var(--text); font-weight: 600; }
 .blotter-bar label { display: flex; align-items: center; gap: 6px; }
 .blotter-bar button { background: transparent; border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; }
+.blotter-window { margin-left: auto; display: flex; gap: 4px; }
+.blotter-window button {
+  width: 22px; height: 22px; padding: 0; display: grid; place-items: center; color: var(--dim);
+}
+.blotter-window button[aria-pressed="true"] { color: var(--text); border-color: var(--blue); }
+.blotter-window svg { width: 14px; height: 14px; fill: none; stroke: currentColor; stroke-width: 1.6; stroke-linecap: round; stroke-linejoin: round; }
 .blotter-empty { margin: 8px 12px; color: var(--dim); }
 .blotter-scroll { overflow: auto; flex: 1; }
 .blotter table { width: 100%; border-collapse: collapse; font-variant-numeric: tabular-nums; }

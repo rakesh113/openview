@@ -26,7 +26,7 @@ from openview.candles import (
     to_db_param,
     window_bounds,
 )
-from openview.config import DatasetConfig, Settings, resolve_connect
+from openview.config import DatasetConfig, Settings, duckdb_target, resolve_connect
 from openview.detect import CandleSchema, detect_candles, list_tables
 
 log = logging.getLogger("openview")
@@ -63,7 +63,11 @@ class Dataset:
     def __init__(self, config: DatasetConfig, settings: Settings) -> None:
         self.config = config
         self.settings = settings
-        self.connect_target = resolve_connect(config.connect)
+        if config.kind == "duckdb":
+            self.connect_target, self.cloud = duckdb_target(config.connect, config.local)
+        else:
+            self.connect_target = resolve_connect(config.connect)
+            self.cloud = False
         self.error: str | None = None
         self.schema: CandleSchema | None = None
         self.inspection: list[dict] = []
@@ -120,15 +124,24 @@ class Dataset:
     def _open_duckdb(self) -> None:
         target = self.connect_target
         kwargs = {}
-        if target.startswith("md:"):
+        if not self.cloud:
+            log.info("dataset %s reading local DuckDB %s", self.config.id, target)
+        elif self.config.local:
+            log.info(
+                "dataset %s local DuckDB not found at %s; using %s",
+                self.config.id,
+                self.config.local,
+                self.config.connect,
+            )
+        if self.cloud:
             token = os.environ.get(self.settings.token_env, "")
             if not token:
                 raise RuntimeError(
                     f"Set {self.settings.token_env} before connecting to {self.config.connect}"
                 )
             kwargs["config"] = {"motherduck_token": token}
-        read_only = not target.startswith("md:")
-        self._con = duckdb.connect(target, read_only=read_only, **kwargs)
+        # Local files are read-only and carry no username, password, or token.
+        self._con = duckdb.connect(target, read_only=not self.cloud, **kwargs)
         self._con.execute("SET TimeZone = 'UTC'")
         self.schema = detect_candles(
             self._con,

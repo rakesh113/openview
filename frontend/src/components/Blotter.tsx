@@ -1,6 +1,8 @@
 import { formatClock, formatPrice } from '../lib/format'
 import type { Trade } from '../types'
 
+type BlotterMode = 'normal' | 'min' | 'max'
+
 type Props = {
   trades: Trade[]
   symbol: string | null
@@ -9,6 +11,9 @@ type Props = {
   hoverTime: number | null
   onFocus: (trade: Trade) => void
   onClear: () => void
+  mode: BlotterMode
+  onMinimize: () => void
+  onMaximize: () => void
 }
 
 function pnlOf(trade: Trade): number | null {
@@ -24,8 +29,9 @@ export function Blotter(props: Props) {
   const rows = props.symbolOnly && props.symbol
     ? props.trades.filter((trade) => trade.symbol === props.symbol)
     : props.trades
+  const collapsed = props.mode === 'min'
   return (
-    <section className="blotter">
+    <section className={`blotter${collapsed ? ' collapsed' : ''}`}>
       <div className="blotter-bar">
         <strong>Trades</strong>
         <span>{rows.length}</span>
@@ -40,8 +46,36 @@ export function Blotter(props: Props) {
         <button type="button" onClick={props.onClear} disabled={props.trades.length === 0}>
           Clear
         </button>
+        <span className="blotter-window">
+          <button
+            type="button"
+            aria-label={collapsed ? 'Restore trades' : 'Minimise trades'}
+            aria-pressed={collapsed}
+            title={collapsed ? 'Restore' : 'Minimise'}
+            onClick={props.onMinimize}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              <path d="M3 8.5h10" />
+            </svg>
+          </button>
+          <button
+            type="button"
+            aria-label={props.mode === 'max' ? 'Restore trades' : 'Maximise trades'}
+            aria-pressed={props.mode === 'max'}
+            title={props.mode === 'max' ? 'Restore' : 'Maximise'}
+            onClick={props.onMaximize}
+          >
+            <svg viewBox="0 0 16 16" aria-hidden="true">
+              {props.mode === 'max' ? (
+                <path d="M5 3.5h7.5V11M11 12.5H3.5V5" />
+              ) : (
+                <rect x="3.5" y="3.5" width="9" height="9" rx="1" />
+              )}
+            </svg>
+          </button>
+        </span>
       </div>
-      {rows.length === 0 ? (
+      {collapsed ? null : rows.length === 0 ? (
         <p className="blotter-empty">Load a backtest CSV to mark entries and exits on the chart.</p>
       ) : (
         <div className="blotter-scroll">

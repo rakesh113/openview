@@ -65,6 +65,10 @@ export function App() {
   const [symbolOnly, setSymbolOnly] = useState(true)
   const [listWidth, setListWidth] = useState(() => readJson('openview.listWidth', 248))
   const [blotterHeight, setBlotterHeight] = useState(() => readJson('openview.blotterHeight', 176))
+  const [blotterMode, setBlotterMode] = useState<'normal' | 'min' | 'max'>(() => {
+    const saved = readJson<'normal' | 'min' | 'max'>('openview.blotterMode', 'normal')
+    return saved === 'min' || saved === 'max' ? saved : 'normal'
+  })
   const [listOpen, setListOpen] = useState(() => window.innerWidth > 900)
   const [focusToken, setFocusToken] = useState(0)
   const [draft, setDraft] = useState<{ x: number; y: number; time: number; price: number } | null>(null)
@@ -101,7 +105,8 @@ export function App() {
   useEffect(() => {
     localStorage.setItem('openview.listWidth', JSON.stringify(listWidth))
     localStorage.setItem('openview.blotterHeight', JSON.stringify(blotterHeight))
-  }, [listWidth, blotterHeight])
+    localStorage.setItem('openview.blotterMode', JSON.stringify(blotterMode))
+  }, [listWidth, blotterHeight, blotterMode])
 
   useEffect(() => {
     if (!dataset) return
@@ -463,7 +468,7 @@ export function App() {
           </>
         )}
         <div className="stage">
-          <div className="chart-stage">
+          <div className={`chart-stage${blotterMode === 'max' ? ' chart-stage-collapsed' : ''}`}>
             {bootError && <div className="db-error"><h2>OpenView is offline</h2><p>{bootError}</p></div>}
             {current && !current.ok && (
               <div className="db-error">
@@ -523,8 +528,13 @@ export function App() {
               <div className="toast">No candles for {symbol}.</div>
             )}
           </div>
-          <div className="splitter horizontal" onPointerDown={dragBlotter} role="separator" aria-orientation="horizontal" />
-          <div style={{ height: blotterHeight }}>
+          {blotterMode === 'normal' && (
+            <div className="splitter horizontal" onPointerDown={dragBlotter} role="separator" aria-orientation="horizontal" />
+          )}
+          <div
+            className={`blotter-slot${blotterMode === 'max' ? ' max' : ''}`}
+            style={blotterMode === 'normal' ? { height: blotterHeight } : undefined}
+          >
             <Blotter
               trades={trades}
               symbol={symbol}
@@ -533,6 +543,9 @@ export function App() {
               hoverTime={hoverTime}
               onFocus={focusTrade}
               onClear={() => setTrades([])}
+              mode={blotterMode}
+              onMinimize={() => setBlotterMode((mode) => (mode === 'min' ? 'normal' : 'min'))}
+              onMaximize={() => setBlotterMode((mode) => (mode === 'max' ? 'normal' : 'max'))}
             />
           </div>
           <footer className="statusbar">

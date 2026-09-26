@@ -49,6 +49,8 @@ class DatasetConfig:
     # duckdb reads a database. file reads CSV or Parquet. http proxies another candles API.
     kind: str = "duckdb"
     connect: str = ""
+    # Local DuckDB file. Used instead of connect when the file exists. No token.
+    local: str | None = None
     path: str | None = None
     url: str | None = None
     symbols_url: str | None = None
@@ -173,9 +175,14 @@ def _dataset(raw: dict) -> DatasetConfig:
     url = _http_url(raw["url"], "url") if kind == "http" else None
     symbols_url = _http_url(raw["symbols_url"], "symbols_url") if raw.get("symbols_url") else None
     path = str(raw["path"]) if raw.get("path") else None
+    local = str(raw["local"]).strip() if raw.get("local") else None
+    # A duckdb `path` is the local database file, same as `local`.
+    if kind == "duckdb" and not local and path:
+        local = path
+        path = None
     connect = str(raw.get("connect") or "")
-    if kind == "duckdb" and not connect:
-        raise ValueError(f"Dataset {raw.get('id')} needs connect")
+    if kind == "duckdb" and not connect and not local:
+        raise ValueError(f"Dataset {raw.get('id')} needs connect or a local file path")
     if kind == "file" and not (path or connect):
         raise ValueError(f"Dataset {raw.get('id')} needs path")
     if kind == "http":
@@ -188,6 +195,7 @@ def _dataset(raw: dict) -> DatasetConfig:
         label=str(raw.get("label") or raw["id"]),
         kind=kind,
         connect=connect,
+        local=local or None,
         path=path,
         url=url,
         symbols_url=symbols_url,
@@ -209,6 +217,11 @@ def settings_from_mapping(raw: dict) -> Settings:
     ids = [item.id for item in datasets]
     if len(ids) != len(set(ids)):
         raise ValueError("Dataset ids must be unique")
+    shared_local = str(raw.get("local") or "").strip() or None
+    if shared_local:
+        for item in datasets:
+            if item.kind == "duckdb" and not item.local:
+                item.local = shared_local
     settings = Settings(
         timezone=str(raw.get("timezone") or "Asia/Kolkata"),
         session_open=str(raw.get("session_open") or "09:15"),
@@ -279,3 +292,24 @@ def resolve_connect(connect: str) -> str:
     if root_path.exists():
         return str(root_path)
     return str(cwd_path)
+
+
+def duckdb_target(connect: str, local: str | None = None) -> tuple[str, bool]:
+    """Choose the database to open.
+
+    Returns ``(target, cloud)``. A local file is used when ``local`` is set and
+    that file exists. MotherDuck URIs (``md:``) are cloud and need a token.
+    A filesystem path does not need a username, password, or token.
+    When the local file is missing, ``connect`` is used instead.
+    """
+    if local:
+        resolved = resolve_connect(local)
+        if Path(resolved).is_file():
+            return resolved, False
+    if connect.startswith("md:"):
+        return connect, True
+    if connect:
+        return resolve_connect(connect), False
+    if local:
+        return resolve_connect(local), False
+    raise ValueError("DuckDB dataset needs connect or a local file path")

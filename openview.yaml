@@ -3,7 +3,10 @@
 # engine. A file or another HTTP API can serve the same window.
 #
 # kind: duckdb | file | http
-#   duckdb  connect: md:market_data   or a local .duckdb path
+#   duckdb  connect: md:market_data   cloud default (needs token_env)
+#           local: data/market.duckdb  used when this file exists; no token
+#           A duckdb path: is the same as local:. One top-level local: applies
+#           to every duckdb dataset that does not set its own.
 #   file    path: samples/prices.csv  (.csv, .tsv, or .parquet)
 #   http    url: https://example/candles
 #           symbols_url: https://example/symbols
@@ -21,12 +24,16 @@ timezone: Asia/Kolkata
 session_open: "09:15"
 session_close: "15:30"
 token_env: MOTHERDUCK_TOKEN
+# Uncomment and point at a local file to use it instead of MotherDuck.
+# No username, password, or token. Missing file falls back to connect.
+# local: data/market.duckdb
 
 datasets:
   - id: equities
     label: NSE Equities
     kind: duckdb
     connect: md:market_data
+    local: C:/Users/rakeshv/Documents/codebase/market-data/market_data.duckdb
     table: candles_1m
     time_stored_as: timestamptz
     price_divisor: 100
