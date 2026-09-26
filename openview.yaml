@@ -1,0 +1,93 @@
+# Each dataset answers a short time window. The chart asks for the bars on screen,
+# then asks again when you scroll. DuckDB is the table structure and the query
+# engine. A file or another HTTP API can serve the same window.
+#
+# kind: duckdb | file | http
+#   duckdb  connect: md:market_data   or a local .duckdb path
+#   file    path: samples/prices.csv  (.csv, .tsv, or .parquet)
+#   http    url: https://example/candles
+#           symbols_url: https://example/symbols
+#           The remote API receives symbol, timeframe, limit, and one of
+#           before, after, around. It returns {"bars": [[time, open, high, low, close, volume]]}.
+#
+# prices stored as paise: price_divisor: 100
+# symbol on a dimension table:
+#   symbols: {table, key, column, label}
+#   columns.key: the fact-table column that matches symbols.key
+# interval column with bars that are already 1-minute or daily:
+#   native_intervals: {1m: 1minute, 1d: day}
+
+timezone: Asia/Kolkata
+session_open: "09:15"
+session_close: "15:30"
+token_env: MOTHERDUCK_TOKEN
+
+datasets:
+  - id: equities
+    label: NSE Equities
+    kind: duckdb
+    connect: md:market_data
+    table: candles_1m
+    time_stored_as: timestamptz
+    price_divisor: 100
+    symbols:
+      table: instruments
+      key: instrument_id
+      column: symbol
+      label: name
+    columns:
+      key: instrument_id
+      time: ts
+      open: open
+      high: high
+      low: low
+      close: close
+      volume: volume
+
+  - id: indexes
+    label: NSE Indexes
+    kind: duckdb
+    connect: md:options_data
+    table: index_candles
+    time_stored_as: timestamptz
+    interval_column: interval
+    native_intervals:
+      1m: 1minute
+      1d: day
+    columns:
+      symbol: symbol
+      time: ts
+      open: open
+      high: high
+      low: low
+      close: close
+      volume: volume
+
+  - id: options
+    label: NSE Options
+    kind: duckdb
+    connect: md:options_data
+    table: option_candles
+    time_stored_as: timestamptz
+    interval_column: interval
+    native_intervals:
+      1m: 1minute
+      1d: day
+    symbols:
+      table: option_contracts
+      key: instrument_key
+      column: trading_symbol
+      label: underlying
+    columns:
+      key: instrument_key
+      time: ts
+      open: open
+      high: high
+      low: low
+      close: close
+      volume: volume
+
+  - id: file
+    label: Sample file
+    kind: file
+    path: samples/prices.csv
