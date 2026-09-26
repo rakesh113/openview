@@ -205,8 +205,10 @@ export function TradeDialog({
             <code>exit_price</code>, <code>quantity</code>, <code>pnl</code>, <code>tag</code>.
           </p>
           <p>
-            Times are ISO-8601. A value without a timezone is read as Asia/Kolkata. <code>long</code>/<code>short</code>{' '}
-            and <code>buy</code>/<code>sell</code> both work. Logs that already use <code>Type</code>,{' '}
+            Times are ISO-8601. A value without a timezone is read as Asia/Kolkata. Each long is drawn in green and
+            each short in red, with the entry and exit on the candles and the result shaded between the two prices.{' '}
+            <code>long</code>/<code>short</code> and <code>buy</code>/<code>sell</code> both work. Logs that already use{' '}
+            <code>Type</code>,{' '}
             <code>Entry Time</code>, <code>Entry Price</code>, <code>Exit Time</code>, <code>Exit Price</code>,{' '}
             <code>PnL</code>, and <code>Reason</code> load as-is.
           </p>

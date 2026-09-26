@@ -17,13 +17,13 @@ import {
   type ITextWatermarkPluginApi,
   type LogicalRange,
   type MouseEventParams,
-  type SeriesMarker,
   type SeriesType,
   type Time,
   type UTCTimestamp,
 } from 'lightweight-charts'
 import { useEffect, useMemo, useRef, useState } from 'react'
-import { ChartOverlay, type NoteMark, type TradeSegment } from '../chart/overlay'
+import { ChartOverlay, type NoteMark } from '../chart/overlay'
+import { placeTrades } from '../chart/tradeMarks'
 import { formatChange, formatPrice, formatTick, formatVolume, formatWhen } from '../lib/format'
 import { buildPlots } from '../lib/plots'
 import type { Bar, Drawing, Indicator, Tool, Trade } from '../types'
@@ -44,6 +44,7 @@ type Props = {
   onNeedNewer: () => void
   onViewportBars: (count: number) => void
   onJumpLatest: () => void
+  onShowTrades: () => void
   onRemoveIndicator: (id: string) => void
   onPlace: (place: { tool: Tool; price: number; time: number; x: number; y: number }) => void
   onHoverTime: (time: number | null) => void
@@ -76,17 +77,6 @@ function snapTime(bars: Bar[], time: number, width: number): number | null {
   return bars[nearestIndex(bars, time)].time
 }
 
-function tradeColor(trade: Trade): string {
-  if (trade.exit_price == null) return '#2962ff'
-  const qty = trade.quantity ?? 1
-  const pnl =
-    trade.pnl ??
-    (trade.side === 'long'
-      ? (trade.exit_price - trade.entry_price) * qty
-      : (trade.entry_price - trade.exit_price) * qty)
-  return pnl >= 0 ? '#089981' : '#f23645'
-}
-
 export function ChartView({
   bars,
   timeframe,
@@ -103,6 +93,7 @@ export function ChartView({
   onNeedNewer,
   onViewportBars,
   onJumpLatest,
+  onShowTrades,
   onRemoveIndicator,
   onPlace,
   onHoverTime,
@@ -211,7 +202,7 @@ export function ChartView({
       wickDownColor: '#f23645',
       priceLineColor: '#d1d4dc',
     })
-    const markers = createSeriesMarkers(candles, [])
+    const markers = createSeriesMarkers(candles, [], { zOrder: 'top' })
     const overlay = new ChartOverlay()
     candles.attachPrimitive(overlay)
     const watermark = createTextWatermark(chart.panes()[0], {
@@ -396,51 +387,12 @@ export function ChartView({
     })
   }, [plots])
 
+  const placedTrades = useMemo(() => placeTrades(trades, bars, timeframe), [trades, bars, timeframe])
+
   useEffect(() => {
-    const width = tfSeconds(timeframe)
-    const markers: SeriesMarker<Time>[] = []
-    const segments: TradeSegment[] = []
-    const showText = trades.length <= 40
-    for (const trade of trades) {
-      const entry = snapTime(bars, trade.entry_time, width)
-      if (entry == null) continue
-      const color = trade.side === 'long' ? '#089981' : '#f23645'
-      markers.push({
-        time: entry as UTCTimestamp,
-        position: 'atPriceMiddle',
-        price: trade.entry_price,
-        shape: trade.side === 'long' ? 'arrowUp' : 'arrowDown',
-        color,
-        text: showText ? (trade.side === 'long' ? 'B' : 'S') : '',
-        size: 1,
-      })
-      if (trade.exit_time != null && trade.exit_price != null) {
-        const exit = snapTime(bars, trade.exit_time, width)
-        if (exit != null) {
-          const pnlColor = tradeColor(trade)
-          markers.push({
-            time: exit as UTCTimestamp,
-            position: 'atPriceMiddle',
-            price: trade.exit_price,
-            shape: 'circle',
-            color: pnlColor,
-            text: showText ? 'X' : '',
-            size: 1,
-          })
-          segments.push({
-            entryTime: entry,
-            entryPrice: trade.entry_price,
-            exitTime: exit,
-            exitPrice: trade.exit_price,
-            color: pnlColor,
-          })
-        }
-      }
-    }
-    markers.sort((a, b) => (a.time as number) - (b.time as number))
-    markersRef.current?.setMarkers(markers)
-    overlayRef.current?.setSegments(segments)
-  }, [bars, timeframe, trades])
+    markersRef.current?.setMarkers([])
+    overlayRef.current?.setTrades(placedTrades)
+  }, [placedTrades])
 
   useEffect(() => {
     const series = candleRef.current
@@ -482,6 +434,12 @@ export function ChartView({
 
   const index = hoverIndex ?? (bars.length ? bars.length - 1 : -1)
   const bar = index >= 0 ? bars[index] : null
+  const hoverTrade =
+    bar == null
+      ? null
+      : (trades.find(
+          (trade) => trade.entry_time <= bar.time && (trade.exit_time == null || trade.exit_time >= bar.time),
+        ) ?? null)
   const previous = index > 0 ? bars[index - 1].close : bar?.open
   const change = bar && previous ? bar.close - previous : 0
   const pct = bar && previous ? (change / previous) * 100 : 0
@@ -514,6 +472,13 @@ export function ChartView({
               {formatChange(change)} ({formatChange(pct)}%)
             </span>
             <span>V <b>{formatVolume(bar.volume)}</b></span>
+            {hoverTrade && (
+              <span className={hoverTrade.side === 'long' ? 'up' : 'down'}>
+                {hoverTrade.side === 'long' ? 'Long' : 'Short'} {formatPrice(hoverTrade.entry_price)}
+                {hoverTrade.exit_price != null ? ` → ${formatPrice(hoverTrade.exit_price)}` : ' · open'}
+                {hoverTrade.tag ? ` · ${hoverTrade.tag}` : ''}
+              </span>
+            )}
           </div>
           {legendItems.length > 0 && (
             <div className="legend-inds">
@@ -528,6 +493,13 @@ export function ChartView({
             </div>
           )}
         </div>
+      )}
+      {trades.length > 0 && (
+        <button type="button" className="trades-jump" onClick={onShowTrades}>
+          {placedTrades.length === 0
+            ? `Show ${trades.length} trade${trades.length === 1 ? '' : 's'}`
+            : `${placedTrades.length} trade${placedTrades.length === 1 ? '' : 's'} on chart`}
+        </button>
       )}
       {away && (
         <button type="button" className="latest-btn" onClick={onJumpLatest}>

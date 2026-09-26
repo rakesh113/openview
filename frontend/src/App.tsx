@@ -398,6 +398,10 @@ export function App() {
       setTrades(result.trades)
       setRowErrors(result.errors)
       if (result.errors.length === 0) setDialog(null)
+      const same = symbol ? result.trades.filter((trade) => trade.symbol === symbol) : []
+      const pool = same.length ? same : result.trades
+      const latest = [...pool].sort((a, b) => b.entry_time - a.entry_time)[0]
+      if (latest) focusTrade(latest)
     } catch (error) {
       setTradeError(error instanceof Error ? error.message : 'Could not read that CSV')
     } finally {
@@ -508,6 +512,18 @@ export function App() {
                 onNeedNewer={loadNewer}
                 onViewportBars={onViewportBars}
                 onJumpLatest={jumpLatest}
+                onShowTrades={() => {
+                  const pool = chartTrades.length ? chartTrades : trades
+                  if (!pool.length) return
+                  const first = bars[0]?.time
+                  const last = bars[bars.length - 1]?.time
+                  const inside =
+                    first == null || last == null
+                      ? []
+                      : pool.filter((trade) => trade.entry_time >= first && trade.entry_time <= last)
+                  const target = inside.at(-1) ?? [...pool].sort((a, b) => b.entry_time - a.entry_time)[0]
+                  if (target) focusTrade(target)
+                }}
                 onRemoveIndicator={(id) => setIndicators((items) => items.filter((item) => item.id !== id))}
                 onPlace={onPlace}
                 onHoverTime={setHoverTime}

@@ -162,6 +162,18 @@ button:disabled { cursor: default; opacity: 0.45; }
   border-radius: 4px; padding: 3px 8px; font-size: 12px;
 }
 .latest-btn { right: 78px; bottom: 32px; }
+.trades-jump {
+  position: absolute;
+  left: 12px;
+  bottom: 32px;
+  z-index: 3;
+  background: var(--elev);
+  border: 1px solid var(--line);
+  border-radius: 4px;
+  padding: 4px 8px;
+  color: var(--text);
+}
+.trades-jump:hover { border-color: var(--blue); }
 .autoscale-btn { right: 8px; bottom: 32px; color: var(--dim); }
 .latest-btn:hover, .autoscale-btn:hover { color: var(--text); border-color: var(--dim); }
 .cap-note {
